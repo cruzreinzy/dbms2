@@ -1,0 +1,810 @@
+*create folder laravel-api*
+
+***
+
+composer create-project laravel/laravel ..\finals
+
+***
+
+php artisan make:model Auth -m -f -c
+
+***
+
+-api
+Route::controller(AuthController::class)->group(function(){
+    Route::post('/login', 'login')->name('login');
+});
+
+***
+
+-authcontroller
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AuthController extends Controller
+{
+    public function login(Request $r) {
+        if (Auth::attempt($r->only(['email', 'password']))) {
+            return response([
+                'message' => 'Authentication Success!',
+                'token' => Auth::user()->createToken('token')->plainTextToken
+            ], 200);
+        } else {
+            return response([
+                'message' => 'Authentication Failed!'
+            ], 400);
+        }
+    }
+}
+
+***
+
+php artisan serve
+
+***
+
+-env
+database name
+
+***
+
+-database seeder
+<?php
+
+namespace Database\Seeders;
+
+// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // \App\Models\User::factory(10)->create();
+
+        \App\Models\User::factory()->create([
+            'name' => 'Rein Cruz',
+            'email' => 'reincruz@gmail.com',
+            'password' => 'reinzy'
+        ]);
+    }
+}
+
+***
+
+php artisan migrate --seed
+
+***
+
+*create folder records*
+
+***
+*create file index.html*
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Page</title>
+</head>
+<body>
+    <form method="post">
+        <div>
+            <label for="email">Email:</label>
+            <input type="text" name="email" id="email">
+        </div>
+
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" name="password" id="password">
+        </div>
+
+        <button id="login" type="button">Sign in</button>
+    </form>
+
+    <script>
+        const token = localStorage.getItem('token');
+
+        if (token != null) {
+            window.location.href = "book.html"
+        }
+
+        document.querySelector('#login').addEventListener('click', function(e) {
+            const email = document.querySelector('#email').value
+            const password = document.querySelector('#password').value
+            const newform = new FormData();
+
+            newform.append('email', email)
+            newform.append('password', password)
+
+            fetch('http://localhost:8000/api/login', {
+
+                method: "POST",
+                body: newform
+
+            }).then(response => {
+
+                return response.json()
+
+            }).then(data => {
+
+                if (data.token == undefined) {
+
+                    alert(data.message)
+
+                } else {
+
+                    localStorage.setItem('token', data.token)
+                    window.location.href = "book.html"
+
+                }
+            })
+        })
+    </script>
+</body>
+</html>
+
+***
+*create file book.html*
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Informations</title>
+</head>
+<header>
+
+    <div class="links">
+        <a href="book.html">Book</a>
+        <a href="students.html">Students</a>
+        <a href="facilities.html">Facilities</a>
+        <a href="" id="logout">Logout</a>
+    </div>
+
+</header>
+
+<body>
+
+    <h1>Records of Book Informations</h1>
+
+    <table border="2">
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>ISBN</th>
+                <th>Publisher</th>
+            </tr>
+        </thead>
+
+        <tbody id="content"></tbody>
+
+    </table>
+
+    <script>
+
+        var token = localStorage.getItem('token')
+        var content = document.getElementById('content')
+
+        if(token == null){
+            window.location.href="index.html"
+        }
+
+        fetch('http://localhost:8000/api/book',{
+
+            method:'GET',
+            headers:{
+                'Authorization':'Bearer '+token
+
+            }
+        })
+
+        .then(request => {
+            return request.json()
+
+        })
+
+        .then(data => {
+            var html = ""
+            data.forEach(function(value){
+                html += `
+                    <tr>
+                        <td>${value.id}</td>
+                        <td>${value.title}</td>
+                        <td>${value.isbn}</td>
+                        <td>${value.publisher}</td>   
+                    </tr>
+                `
+            })
+            
+            content.innerHTML = html
+
+        })
+
+        document.querySelector('#logout').addEventListener('click', function() {
+            localStorage.removeItem('token');
+            window.location.href = "index.html"
+        })
+
+    </script>
+</body>
+</html>
+
+***
+
+php artisan make:model Book -m -f -c
+
+***
+
+-migrations/book
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('books', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->string('isbn');
+            $table->string('publisher');
+	    $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('books');
+    }
+};
+
+***
+
+-models/book
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Book extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'isbn',
+        'publisher',
+    ];
+}
+
+***
+
+-bookcontroller
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Book;
+use Illuminate\Http\Request;
+
+class BookController extends Controller
+{
+    public function index() {
+        return response(Book::all());
+    }
+}
+
+***
+
+-bookfactory
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Book>
+ */
+class BookFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'title' => fake()->sentence(),
+            'isbn' => fake()->numerify('###-#-#####-###-#'),
+            'publisher' => fake()->company(),
+        ];
+    }
+}
+
+
+***
+
+-databaseseeder
+\App\Models\Book::factory(10)->create();
+
+***
+
+php artisan migrate:fresh --seed
+
+***
+
+Route::get('/book', [BookController::class, 'index'])->middleware('auth:sanctum')->name('book');
+
+***
+
+*create file students.html*
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Informations</title>
+</head>
+<header>
+
+    <div class="links">
+        <a href="book.html">Book</a>
+        <a href="students.html">Students</a>
+        <a href="facilities.html">Facilities</a>
+        <a href="" id="logout">Logout</a>
+    </div>
+
+</header>
+
+<body>
+
+    <h1>Records of Student Informations</h1>
+
+    <table border="2">
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Student No.</th>
+                <th>Full Name</th>
+                <th>BirthDate</th>
+            </tr>
+        </thead>
+
+        <tbody id="content"></tbody>
+
+    </table>
+
+    <script>
+
+        var token = localStorage.getItem('token')
+        var content = document.getElementById('content')
+
+        if(token == null){
+            window.location.href="index.html"
+        }
+
+        fetch('http://localhost:8000/api/students',{
+
+            method:'GET',
+            headers:{
+                'Authorization':'Bearer '+token
+
+            }
+        })
+
+        .then(request => {
+            return request.json()
+
+        })
+
+        .then(data => {
+            var html = ""
+            data.forEach(function(value){
+                html += `
+                    <tr>
+                        <td>${value.id}</td>
+                        <td>${value.student_number}</td>
+                        <td>${value.full_name}</td>
+                        <td>${value.birthdate}</td>   
+                    </tr>
+                `
+            })
+
+            content.innerHTML = html
+
+        })
+
+        document.querySelector('#logout').addEventListener('click', function() {
+            localStorage.removeItem('token');
+            window.location.href = "index.html"
+        })
+
+    </script>
+</body>
+</html>
+
+***
+
+php artisan make:model Students -m -f -c
+
+***
+
+-model/students
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Students extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'student_number',
+        'full_name',
+        'birthdate',
+    ];
+}
+
+***
+
+-migrations/students
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('students', function (Blueprint $table) {
+            $table->id();
+            $table->string('student_number');
+            $table->string('full_name');
+            $table->string('birthdate');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('students');
+    }
+};
+
+***
+
+-factory/students
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Students>
+ */
+class StudentsFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'student_number' => fake()->numerify('##-####'),
+            'full_name' => fake()->name(),
+            'birthdate' => fake()->unique()->dateTimeBetween('-252 months', '-180 months')->format('Y-m-d'),
+        ];
+    }
+}
+
+***
+
+-databaseseeder
+\App\Models\Book::factory(10)->create();
+
+***
+
+-studentscontroller
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Students;
+use Illuminate\Http\Request;
+
+class StudentsController extends Controller
+{
+    public function index() {
+        return response(Students::all());
+    }
+}
+
+***
+
+-api
+Route::get('/students', [StudentsController::class, 'index'])->middleware('auth:sanctum')->name('students');
+
+***
+
+php artisan migrate:fresh --seed
+
+***
+
+*create file facilities.html*
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facility Informations</title>
+</head>
+<header>
+
+    <div class="links">
+        <a href="book.html">Book</a>
+        <a href="students.html">Students</a>
+        <a href="facilities.html">Facilities</a>
+        <a href="" id="logout">Logout</a>
+    </div>
+
+</header>
+
+<body>
+
+    <h1>Records of Facility Informations</h1>
+
+    <table border="2">
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Floor</th>
+                <th>Name</th>
+                <th>Room No.</th>
+            </tr>
+        </thead>
+
+        <tbody id="content"></tbody>
+
+    </table>
+
+    <script>
+
+        var token = localStorage.getItem('token')
+        var content = document.getElementById('content')
+
+        if(token == null){
+            window.location.href="index.html"
+        }
+
+        fetch('http://localhost:8000/api/facilities',{
+
+            method:'GET',
+            headers:{
+                'Authorization':'Bearer '+token
+
+            }
+        })
+
+        .then(request => {
+            return request.json()
+
+        })
+
+        .then(data => {
+            var html = ""
+            data.forEach(function(value){
+                html += `
+                    <tr>
+                        <td>${value.id}</td>
+                        <td>${value.floor}</td>
+                        <td>${value.name}</td>
+                        <td>${value.room_number}</td>   
+                    </tr>
+                `
+            })
+
+            content.innerHTML = html
+
+        })
+
+        document.querySelector('#logout').addEventListener('click', function() {
+            localStorage.removeItem('token');
+            window.location.href = "index.html"
+        })
+
+    </script>
+</body>
+</html>
+
+***
+
+php artisan make:model Facilities -m -f -c
+
+***
+
+-model/facilities
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Facilities extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'floor',
+        'name',
+        'room_number',
+    ];
+}
+
+***
+
+-migrations/facilities
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('facilities', function (Blueprint $table) {
+            $table->id();
+            $table->string('floor');
+            $table->string('name');
+            $table->string('room_number');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('facilities');
+    }
+};
+
+***
+
+-factory/facilities
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Facilities>
+ */
+class FacilitiesFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'floor' => fake()->numberBetween(1, 10),
+            'name' => fake()->colorName(),
+            'room_number' => fake()->numberBetween(1, 10),
+        ];
+    }
+}
+
+***
+
+-databaseseeder
+\App\Models\Facilities::factory(10)->create();
+
+***
+
+-facilitiescontroller
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Facilities;
+use Illuminate\Http\Request;
+
+class FacilitiesController extends Controller
+{
+    public function index() {
+        return response(Facilities::all());
+    }
+}
+
+***
+
+-api
+Route::get('/facilities', [FacilitiesController::class, 'index'])->middleware('auth:sanctum')->name('facilities');
+
+***
+
+php artisan migrate:fresh --seed
+
+***
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
